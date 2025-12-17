@@ -1552,7 +1552,7 @@ def update_profile_image(request, obj_id):
         employee.save()
         messages.success(request, _("Profile image updated."))
     except Exception:
-        messages.error(request, _("Upload a valid image."))
+        messages.error(request, _("No image chosen."))
     response = render(
         request,
         "employee/profile/profile_modal.html",
@@ -1568,14 +1568,11 @@ def update_own_profile_image(request):
     """
     This method is used to update own profile image from profile view form
     """
-    try:
-        employee = request.user.employee_get
-        img = request.FILES.get("employee_profile")
-        employee.employee_profile = img
-        employee.save()
-        messages.success(request, _("Profile image updated."))
-    except Exception:
-        messages.error(request, _("Upload a valid image."))
+    employee = request.user.employee_get
+    img = request.FILES.get("employee_profile")
+    employee.employee_profile = img
+    employee.save()
+    messages.success(request, _("Profile image updated."))
     response = render(
         request,
         "employee/profile/profile_modal.html",
@@ -1658,7 +1655,7 @@ def employee_create_update_personal_info(request, obj_id=None):
     This method is used to update employee's personal info.
     """
     employee = Employee.objects.filter(id=obj_id).first()
-    form = EmployeeForm(request.POST, request.FILES, instance=employee)
+    form = EmployeeForm(request.POST, instance=employee)
     if form.is_valid():
         form.save()
         if obj_id is None:
@@ -1960,19 +1957,10 @@ def employee_delete(request, obj_id):
                     if contract.contract_status != "active":
                         contract.delete()
         user = employee.employee_user_id
-        # try:
-        #     user.delete()
-        # except AttributeError:
-        #     employee.delete()
-        # messages.success(request, _("Employee deleted"))
-
-        # Delete employee FIRST
-        employee.delete()
-
-        # Delete auth user next (only if exists)
-        if user:
+        try:
             user.delete()
-
+        except AttributeError:
+            employee.delete()
         messages.success(request, _("Employee deleted"))
 
     except Employee.DoesNotExist:

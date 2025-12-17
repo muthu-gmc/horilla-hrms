@@ -17,8 +17,54 @@ from pathlib import Path
 import environ
 from django.contrib.messages import constants as messages
 
+import logging
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ----------------------------
+# Logging Configuration
+# ----------------------------
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} [{name}:{lineno}] {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "file": {
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "django.log"),
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file"],
+            "level": "INFO",
+        },
+        "horilla": {  # your app namespace
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
+
+logger = logging.getLogger("horilla")
+
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
@@ -117,7 +163,9 @@ WSGI_APPLICATION = "horilla.wsgi.application"
 if env("DATABASE_URL", default=None):
     DATABASES = {
         "default": env.db(),
+        
     }
+    logger.info("✅ Using DATABASE_URL for database configuration.")
 else:
     DATABASES = {
         "default": {
@@ -135,7 +183,14 @@ else:
             "PORT": env("DB_PORT", default=""),
         }
     }
-
+    logger.info(
+        "Using custom DB config: ENGINE=%s, NAME=%s, HOST=%s, PORT=%s",
+        env("DB_ENGINE", default="django.db.backends.sqlite3"),
+        env("DB_USER", default=""),
+        env("DB_PASSWORD", default=""),
+        env("DB_HOST", default=""),
+        env("DB_PORT", default=""),
+    )
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
 

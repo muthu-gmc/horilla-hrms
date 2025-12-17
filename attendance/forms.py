@@ -757,7 +757,7 @@ class NewRequestForm(AttendanceRequestForm):
                 if data["attendance_clock_out_date"] == "None"
                 else data["attendance_clock_out_date"]
             )
-            data["work_type_id"] = self.data["work_type_id"]
+            data["work_type_id"] = self.data.get("work_type_id", None)
             data["shift_id"] = self.data["shift_id"]
             attendance = attendances.first()
             for key, value in data.items():

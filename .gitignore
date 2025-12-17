@@ -152,3 +152,9 @@ whoosh_index/
 
 #PyCharm
 .idea/
+
+#env
+.env.dist
+.env
+
+horilla_py312

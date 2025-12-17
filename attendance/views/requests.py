@@ -10,7 +10,7 @@ from datetime import date, datetime, time
 from urllib.parse import parse_qs
 
 from django.contrib import messages
-from django.db.models import ProtectedError, Q
+from django.db.models import ProtectedError
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -177,25 +177,27 @@ def request_new(request):
         form = NewRequestForm(initial=request.GET.dict())
     else:
         form = NewRequestForm()
+     # Include subordinates in the employee_id field
     form = choosesubordinates(request, form, "attendance.change_attendance")
-    employees_qs = Employee.objects.filter(
-        Q(id__in=form.fields["employee_id"].queryset.values_list("id", flat=True))
-        | Q(employee_user_id=request.user)
-    )
-
-    form.fields["employee_id"].queryset = employees_qs.distinct()
+    # form.fields["employee_id"].queryset = form.fields[
+    #     "employee_id"
+    # ].queryset | Employee.objects.filter(employee_user_id=request.user)
+    # form.fields["employee_id"].initial = request.user.employee_get.id
+    qs1 = form.fields["employee_id"].queryset
+    qs2 = Employee.objects.filter(employee_user_id=request.user)
+    combined_ids = list(qs1.values_list("pk", flat=True)) + list(qs2.values_list("pk", flat=True))
+    form.fields["employee_id"].queryset = Employee.objects.filter(pk__in=combined_ids)
     form.fields["employee_id"].initial = request.user.employee_get.id
-    if request.GET.get("emp_id"):
-        emp_id = request.GET.get("emp_id")
-        form.fields["employee_id"].queryset = Employee.objects.filter(id=emp_id)
-        form.fields["employee_id"].initial = emp_id
     if request.method == "POST":
         form = NewRequestForm(request.POST)
-        employees_qs = Employee.objects.filter(
-            Q(id__in=form.fields["employee_id"].queryset.values_list("id", flat=True))
-            | Q(employee_user_id=request.user)
-        )
-        form.fields["employee_id"].queryset = employees_qs.distinct()
+        form = choosesubordinates(request, form, "attendance.change_attendance")
+        # form.fields["employee_id"].queryset = form.fields[
+        #     "employee_id"
+        # ].queryset | Employee.objects.filter(employee_user_id=request.user)
+        qs1 = form.fields["employee_id"].queryset
+        qs2 = Employee.objects.filter(employee_user_id=request.user)
+        combined_ids = list(qs1.values_list("pk", flat=True)) + list(qs2.values_list("pk", flat=True))
+        form.fields["employee_id"].queryset = Employee.objects.filter(pk__in=combined_ids)
         if form.is_valid():
             if form.new_instance is not None:
                 form.new_instance.save()
@@ -470,22 +472,20 @@ def approve_validate_attendance_request(request, attendance_id):
     attendance.is_validate_request = False
     attendance.request_description = None
     attendance.save()
+    requested_data = None
+
     if attendance.requested_data is not None:
-        requested_data = json.loads(attendance.requested_data)
-        requested_data["attendance_clock_out"] = (
-            None
-            if requested_data["attendance_clock_out"] == "None"
-            else requested_data["attendance_clock_out"]
-        )
-        requested_data["attendance_clock_out_date"] = (
-            None
-            if requested_data["attendance_clock_out_date"] == "None"
-            else requested_data["attendance_clock_out_date"]
-        )
-        Attendance.objects.filter(id=attendance_id).update(**requested_data)
+       requested_data = json.loads(attendance.requested_data)
+       for key in ["attendance_clock_out", "attendance_clock_out_date"]:
+           if requested_data.get(key) == "None":
+              requested_data[key] = None
+       requested_data = {k: v for k, v in requested_data.items() if v is not None}
+       requested_data.pop("id", None)
+    if requested_data:
+       Attendance.objects.filter(id=attendance_id).update(**requested_data)
         # DUE TO AFFECT THE OVERTIME CALCULATION ON SAVE METHOD, SAVE THE INSTANCE ONCE MORE
-        attendance = Attendance.objects.get(id=attendance_id)
-        attendance.save()
+       attendance = Attendance.objects.get(id=attendance_id)
+       attendance.save()
 
     if (
         attendance.attendance_clock_out is None

@@ -36,7 +36,16 @@ class OutlookBackend(EmailBackend):
 
     def send_messages(self, email_messages):
         response = super().send_messages(email_messages)
-        return response
+        for message in email_messages:
+            email_log = EmailLog(
+                subject=message.subject,
+                from_email=self.dynamic_from_email_with_display_name,
+                to=message.to,
+                body=message.body,
+                status="sent" if response else "failed",
+            )
+            email_log.save()
+        return
 
     @property
     def dynamic_from_email_with_display_name(self):
@@ -159,16 +168,7 @@ def send_mail(self, *args, **kwargs):
                     }
                 )
         self.email_data["message"]["attachments"] = outlook_attachments
-    response, _ = send_outlook_email(self.request, self.email_data)
-
-    email_log = EmailLog(
-        subject=self.subject,
-        from_email=self.from_email,
-        to=self.to,
-        body=self.body,
-        status="sent" if response else "failed",
-    )
-    email_log.save()
+    send_outlook_email(self.request, self.email_data)
 
 
 EmailMessage.__init__ = __init__
